@@ -52,6 +52,12 @@ export function workspaceHostPath(workspaceId: string): string {
 export function ensureWorkspaceDir(workspaceId: string) {
   const p = workspacePath(workspaceId);
   fs.mkdirSync(p, { recursive: true });
+  // Chown to UID 1000 (premdev user inside workspace container) so the
+  // user can create files and directories inside /workspace from the
+  // terminal. Without this, the API (running as root) creates the dir
+  // owned by root and `mkdir` inside the container fails with EACCES.
+  // Failures are silenced for dev environments running unprivileged.
+  try { fs.chownSync(p, 1000, 1000); } catch {}
   // Init a local git repo so the workspace has version-control bones from
   // day one. Used by the AI's `git diff`-style hints, by checkpoint diffs,
   // and lets the user run `git log` / `git push` without setup. Idempotent:
