@@ -1,1 +1,0 @@
-{"root":["./src/App.tsx","./src/main.tsx","./src/components/AIChat.tsx","./src/components/Layout.tsx","./src/components/Terminal.tsx","./src/lib/api.ts","./src/lib/auth.ts","./src/pages/Admin.tsx","./src/pages/Dashboard.tsx","./src/pages/Editor.tsx","./src/pages/Login.tsx","./src/pages/Settings.tsx"],"version":"5.9.3"}
