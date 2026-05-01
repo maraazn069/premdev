@@ -1,0 +1,101 @@
+# =====================================================================
+# PremDev — Caddy reverse proxy (auto SSL via Cloudflare DNS-01 wildcard)
+# =====================================================================
+
+{
+        email ${LE_EMAIL}
+        # Use Cloudflare DNS plugin for wildcard certificates
+        acme_dns cloudflare ${CF_API_TOKEN}
+        servers {
+                protocols h1 h2 h3
+        }
+}
+
+# Wildcard SSL for the entire domain (covers app, api, admin, db, +
+# every workspace preview/deploy on `<project>-<user>.<domain>`)
+*.${PRIMARY_DOMAIN}, ${PRIMARY_DOMAIN} {
+        tls {
+                dns cloudflare ${CF_API_TOKEN}
+        }
+
+        # phpMyAdmin -> db.<domain>
+        @pma host db.${PRIMARY_DOMAIN}
+        handle @pma {
+                reverse_proxy phpmyadmin:80
+        }
+
+        # Root domain -> static "under construction" landing page.
+        # Deliberately separated from the app so the apex hostname can be
+        # used for marketing later without touching the IDE on app.<domain>.
+        # The landing dir is bind-mounted from /opt/premdev/data/landing.
+        @apex host ${PRIMARY_DOMAIN}
+        handle @apex {
+                root * /srv/landing
+                try_files {path} /index.html
+                file_server
+        }
+
+        # Main app -> app.<domain>. Long read timeout because
+        # /ws/terminal/* is a long-lived WebSocket; the default 30s would
+        # silently kill idle terminals.
+        @app host app.${PRIMARY_DOMAIN}
+        handle @app {
+                reverse_proxy app:3001 {
+                        transport http {
+                                dial_timeout 10s
+                                read_timeout 24h
+                                write_timeout 24h
+                        }
+                        flush_interval -1
+                }
+        }
+
+        # Admin alias (same backend, route handled in app)
+        @admin host admin.${PRIMARY_DOMAIN}
+        handle @admin {
+                reverse_proxy app:3001 {
+                        transport http {
+                                dial_timeout 10s
+                                read_timeout 24h
+                                write_timeout 24h
+                        }
+                        flush_interval -1
+                }
+        }
+
+        # Workspace preview/deploy: any subdomain in either of these shapes:
+        #   - <project>-<user>.<domain>  (auto-generated default)
+        #   - <custom>.<domain>          (single-component custom subdomain
+        #                                 the user picks when running the
+        #                                 workspace; collisions with reserved
+        #                                 labels above are filtered in app)
+        # is routed to the app, which looks up the matching workspace in
+        # SQLite and reverse-proxies into the container. Workspaces are
+        # always-on so this URL = deploy URL.
+        #
+        # Regex matches a single DNS label (2-50 chars, [a-z0-9-], no
+        # leading/trailing hyphen). The reserved-label matchers above
+        # (api/admin/db/...) take precedence because Caddy evaluates
+        # @-named matchers in source order.
+        @workspace header_regexp workspace Host ^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?\.${PRIMARY_DOMAIN}$
+        handle @workspace {
+                reverse_proxy app:3001 {
+                        transport http {
+                                dial_timeout 5s
+                                response_header_timeout 120s
+                        }
+                        header_up Host {host}
+                        header_up X-Real-IP {remote}
+                        header_up X-Forwarded-Proto https
+                }
+        }
+
+        # Default catchall
+        handle {
+                respond "Unknown subdomain" 404
+        }
+}
+
+# Note: legacy `*.${PREVIEW_DOMAIN}` and `*.${DEPLOY_DOMAIN}` blocks were
+# removed — every workspace now uses the unified
+# `<project>-<user>.${PRIMARY_DOMAIN}` URL handled by @workspace above.

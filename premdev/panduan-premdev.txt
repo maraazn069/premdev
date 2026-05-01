@@ -1,0 +1,439 @@
+================================================================================
+  PremDev — Panduan Lengkap dari Awal Sampai Online
+  Untuk pemula yang baru pertama kali memakai VPS
+================================================================================
+
+
+BAGIAN 1: APA ITU PREMDEV
+--------------------------------------------------------------------------------
+
+PremDev adalah aplikasi seperti Replit versi pribadi. Bapak dan ~10 orang bisa
+ngoding di browser, punya terminal, database MySQL, dan asisten AI. Semua jalan
+di satu VPS milik Bapak sendiri.
+
+Yang sudah disiapkan:
+  - Domain : flixprem.org
+  - VPS    : 20.200.209.228 (Ubuntu 24.04, 4 vCPU, 56GB RAM)
+  - GitHub : maraazn069/premdev
+  - Cloudflare : untuk DNS dan SSL otomatis
+
+
+
+BAGIAN 2: APA SAJA ISI PROJECT
+--------------------------------------------------------------------------------
+
+Folder utama:
+
+  premdev/
+  |-- apps/api/        ← Otak aplikasi (Node.js + Fastify)
+  |-- apps/web/        ← Tampilan web (React + Monaco editor)
+  |-- infra/           ← Konfigurasi server
+  |    |-- install.sh                ← Skrip pemasang otomatis di VPS
+  |    |-- docker-compose.prod.yml   ← Daftar service yang harus jalan
+  |    |-- Caddyfile.tmpl            ← Konfig SSL & domain
+  |    |-- caddy/Dockerfile          ← Image proxy + SSL
+  |    `-- runtime/Dockerfile        ← Image untuk workspace user
+  |-- .github/workflows/deploy.yml   ← Otomasi push → deploy
+  |-- Dockerfile       ← Cara bangun image aplikasi
+  |-- README.md        ← Dokumentasi teknis
+  `-- replit.md        ← Memori untuk asisten AI
+
+Teknologi yang dipakai:
+  - Backend       : Node.js 20 + Fastify + SQLite
+  - Frontend      : React 18 + Vite + Tailwind + Monaco
+  - Database user : MySQL 8 + phpMyAdmin
+  - Container     : Docker (satu workspace = satu container)
+  - Proxy + SSL   : Caddy + plugin Cloudflare
+  - CI/CD         : GitHub Actions → GHCR → SSH ke VPS
+
+
+
+BAGIAN 3: FITUR YANG SUDAH ADA
+--------------------------------------------------------------------------------
+
+  [v] Login / register dengan password (admin default: admin / admin1234)
+  [v] Dashboard daftar workspace (buat baru: blank, upload zip, dari Git URL)
+  [v] Editor kode (Monaco — sama seperti VS Code)
+  [v] File tree (rename, hapus, upload zip, download zip)
+  [v] Auto-save tiap 1.5 detik
+  [v] Terminal dalam browser (xterm.js)
+  [v] Tombol Run / Restart workspace
+  [v] Checkpoint (snapshot workspace, bisa di-restore)
+  [v] Asisten AI 5 provider: OpenAI, Anthropic, Google Gemini, OpenRouter, Groq
+  [v] Mode Autopilot AI (AI bisa run command, restart, save checkpoint
+      dengan persetujuan Bapak)
+  [v] Admin panel (kelola user + edit API key AI tanpa edit .env)
+  [v] MySQL otomatis per user (prefix <username>_)
+  [v] phpMyAdmin di db.flixprem.org
+  [v] Preview port otomatis dapat URL HTTPS:
+      <port>-<workspaceId>.preview.flixprem.org
+  [v] Deploy permanen: <nama>.app.flixprem.org
+
+
+
+BAGIAN 4: PERSIAPAN SEBELUM PASANG DI VPS
+--------------------------------------------------------------------------------
+
+4.1 CEK DI CLOUDFLARE (sekali saja)
+
+Login ke Cloudflare → pilih domain flixprem.org → menu DNS.
+Pastikan ada 3 record ini, semua Proxy status = DNS only
+(ikon awan abu-abu, BUKAN oranye):
+
+  Type | Name       | Content
+  -----+------------+-----------------
+  A    | @          | 20.200.209.228
+  A    | *          | 20.200.209.228
+  A    | *.preview  | 20.200.209.228
+
+Lalu buat API Token Cloudflare:
+  1. Klik foto profil kanan atas → My Profile → tab API Tokens
+  2. Klik Create Token → pakai template "Edit zone DNS"
+  3. Di Zone Resources pilih: Include → Specific zone → flixprem.org
+  4. Klik Continue to summary → Create Token
+  5. SALIN TOKEN (muncul sekali saja, simpan di Notepad)
+
+
+4.2 PUSH KODE KE GITHUB
+
+Di Shell Replit, jalankan:
+
+  git add -A
+  git commit -m "Initial commit PremDev"
+  git remote add origin https://github.com/maraazn069/premdev.git
+  git branch -M main
+  git push -u origin main
+
+Kalau diminta password, pakai Personal Access Token GitHub
+(bukan password akun). Cara buat token:
+  1. Buka https://github.com/settings/tokens
+  2. Klik Generate new token (classic)
+  3. Centang scope: repo dan write:packages
+  4. Generate → Salin (simpan di Notepad)
+
+
+
+BAGIAN 5: PASANG DI VPS (PERTAMA KALI)
+--------------------------------------------------------------------------------
+
+5.1 LOGIN KE VPS DARI KOMPUTER BAPAK
+
+Kalau pakai Windows, buka PowerShell (atau Command Prompt) lalu ketik:
+
+  ssh root@20.200.209.228
+
+Pertama kali akan muncul:
+  Are you sure you want to continue connecting (yes/no)?
+ketik "yes" lalu Enter. Lalu masukkan password root VPS
+(yang dikasih provider hosting).
+
+Kalau pakai Mac/Linux: sama, buka Terminal lalu ssh root@20.200.209.228.
+
+Setelah masuk, prompt akan berubah jadi:
+  root@<nama-server>:~#
+Itu artinya Bapak sudah di dalam VPS.
+
+
+5.2 UPDATE VPS DULU (KEBIASAAN BAIK)
+
+  apt update && apt upgrade -y
+
+Tunggu sampai selesai (1–3 menit). Kalau muncul layar biru menanyakan
+service mana yang restart, tekan Tab → pilih OK → Enter.
+
+
+5.3 PASANG GIT (KALAU BELUM ADA)
+
+  apt install -y git
+
+
+5.4 DOWNLOAD SKRIP INSTALLER DARI GITHUB
+
+  git clone https://github.com/maraazn069/premdev.git /tmp/premdev
+
+
+5.5 JALANKAN INSTALLER
+
+  sudo bash /tmp/premdev/infra/install.sh
+
+Installer ini interaktif — akan bertanya beberapa hal.
+Jawab seperti ini:
+
+  Pertanyaan                            | Jawaban Bapak
+  --------------------------------------+----------------------------------
+  Domain (default flixprem.org)         | tekan Enter
+  Cloudflare API token                  | tempel token dari langkah 4.1
+  Email Let's Encrypt                   | email Bapak (untuk notif SSL)
+  Admin username                        | admin (atau pilih sendiri)
+  Admin email                           | email Bapak
+  Admin password                        | bikin password kuat, SIMPAN!
+  OpenAI API key                        | tempel kalau punya, atau Enter
+  Anthropic API key                     | sama, opsional
+  Google API key                        | sama, opsional
+  OpenRouter API key                    | sama, opsional
+  Groq API key                          | sama, opsional
+  MySQL root password                   | Enter = auto-generate (disarankan)
+
+Installer akan otomatis:
+  1. Pasang Docker
+  2. Buka firewall (port 22, 80, 443)
+  3. Bikin folder /opt/premdev
+  4. Build image Caddy + image runtime workspace user
+  5. Tarik image aplikasi dari GHCR
+  6. Hidupkan semua container
+
+Lama waktu: 10–20 menit (tergantung kecepatan VPS).
+
+Kalau berhasil, di akhir akan muncul pesan ✅ dengan URL
+https://app.flixprem.org
+
+
+5.6 TES BUKA DI BROWSER
+
+Buka https://app.flixprem.org → harusnya muncul halaman login PremDev.
+
+Login pakai admin username/password yang Bapak set tadi.
+Kalau berhasil masuk dashboard, SELAMAT — sudah jalan!
+
+
+
+BAGIAN 6: SETUP GITHUB ACTIONS (AUTO-DEPLOY SELANJUTNYA)
+--------------------------------------------------------------------------------
+
+Setelah pasang pertama kali, Bapak ingin: setiap kali push kode,
+VPS otomatis update. Caranya:
+
+
+6.1 BIKIN SSH KEY UNTUK GITHUB ACTIONS
+
+Di VPS (masih di SSH), jalankan:
+
+  ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions -N ""
+  cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+  chmod 600 ~/.ssh/authorized_keys
+  cat ~/.ssh/github_actions
+
+Perintah terakhir akan menampilkan PRIVATE KEY — yang panjang dimulai
+dengan "-----BEGIN OPENSSH PRIVATE KEY-----".
+SALIN SEMUANYA (sampai "-----END OPENSSH PRIVATE KEY-----").
+
+
+6.2 SET SECRET DI GITHUB
+
+Buka:
+  https://github.com/maraazn069/premdev/settings/secrets/actions
+
+Klik New repository secret, buat satu per satu:
+
+  Nama Secret    | Isi
+  ---------------+-----------------------------------------
+  VPS_HOST       | 20.200.209.228
+  VPS_USER       | root
+  VPS_SSH_KEY    | tempel private key dari 6.1
+  VPS_PORT       | 22
+  GHCR_USER      | maraazn069
+  GHCR_PAT       | Personal Access Token GitHub (dari 4.2)
+
+
+6.3 TES AUTO-DEPLOY
+
+Sekarang setiap kali Bapak push:
+
+  git add -A
+  git commit -m "perubahan apa pun"
+  git push origin main
+
+Buka:
+  https://github.com/maraazn069/premdev/actions
+
+Akan muncul workflow berjalan. Tunggu ~5 menit, kalau hijau ✅
+berarti sudah otomatis update di VPS.
+
+
+
+BAGIAN 7: PENGATURAN PENTING SETELAH LIVE
+--------------------------------------------------------------------------------
+
+7.1 GANTI JWT_SECRET (WAJIB UNTUK KEAMANAN)
+
+Saat login admin, kalau muncul banner kuning soal "JWT_SECRET lemah",
+kerjakan ini di VPS:
+
+  ssh root@20.200.209.228
+  nano /opt/premdev/.env
+
+Cari baris JWT_SECRET=... → ganti isinya dengan string acak panjang.
+Untuk generate string acak, ketik di VPS:
+
+  openssl rand -base64 48
+
+Salin hasilnya, tempel di .env setelah JWT_SECRET=.
+Simpan: tekan Ctrl+O → Enter → Ctrl+X.
+
+Lalu restart aplikasi:
+
+  cd /opt/premdev
+  docker compose restart app
+
+
+7.2 ISI API KEY AI (CARA AMAN, TIDAK EDIT .env)
+
+Login admin di https://app.flixprem.org → menu Admin → bagian
+"AI provider keys". Isi API key sesuai provider yang Bapak punya.
+Disimpan TERENKRIPSI di database, tidak terlihat orang lain.
+
+Provider gratis tanpa kartu:
+  - Google Gemini : https://aistudio.google.com/apikey  (free tier besar)
+  - OpenRouter    : https://openrouter.ai/keys          (banyak model :free)
+  - Groq          : https://console.groq.com/keys       (cepat, gratis)
+
+
+
+BAGIAN 8: PERINTAH SEHARI-HARI
+--------------------------------------------------------------------------------
+
+DI REPLIT (saat ngoding):
+
+  npm run dev                            # jalankan dev mode
+  git add -A                             # stage semua perubahan
+  git commit -m "deskripsi perubahan"    # bikin commit
+  git push origin main                   # push → auto deploy
+
+
+DI VPS (saat troubleshoot):
+
+Login dulu: ssh root@20.200.209.228, lalu:
+
+  cd /opt/premdev
+
+  # Lihat status semua service
+  docker compose ps
+
+  # Lihat log aplikasi (live)
+  docker compose logs -f app
+  # Tekan Ctrl+C untuk keluar dari log
+
+  # Lihat log Caddy (proxy + SSL)
+  docker compose logs -f caddy
+
+  # Restart aplikasi saja (kalau lambat/error)
+  docker compose restart app
+
+  # Restart semua
+  docker compose restart
+
+  # Update manual (kalau auto-deploy gagal)
+  docker compose pull app
+  docker compose up -d app
+
+  # Edit env (tambah/ubah variable)
+  nano /opt/premdev/.env
+  docker compose up -d                   # apply perubahan
+
+  # Lihat container workspace user yang aktif
+  docker ps --filter name=pw_
+
+  # Stop workspace user tertentu (kalau hang)
+  docker stop pw_<workspaceId>
+
+
+BACKUP DATA (SANGAT DISARANKAN)
+
+Sekali seminggu di VPS:
+
+  mkdir -p /root/backup
+  cd /opt/premdev
+
+  # Backup database MySQL
+  docker compose exec -T mysql mysqldump \
+    -uroot -p"$(grep MYSQL_ROOT_PASSWORD .env | cut -d= -f2)" \
+    --all-databases > /root/backup/mysql-$(date +%F).sql
+
+  # Backup folder data (workspace user + sqlite)
+  tar -czf /root/backup/data-$(date +%F).tar.gz /opt/premdev/data/
+
+  # Hapus backup > 30 hari
+  find /root/backup -mtime +30 -delete
+
+
+
+BAGIAN 9: KALAU ADA MASALAH
+--------------------------------------------------------------------------------
+
+"Browser tidak bisa buka https://app.flixprem.org"
+  1. Cek SSL Caddy: docker compose logs caddy | tail -50
+  2. Pastikan Cloudflare DNS = DNS only (awan abu-abu)
+  3. Tunggu 2–5 menit pertama kali (SSL DNS-01 butuh waktu)
+
+"Login berhasil tapi dashboard kosong"
+  1. Cek log app: docker compose logs app | tail -100
+  2. Cek koneksi MySQL: docker compose ps (mysql harus healthy)
+
+"Terminal di browser tidak konek"
+  1. Cek log app saat buka terminal — biasanya soal WebSocket
+  2. Pastikan workspace container hidup: docker ps --filter name=pw_
+
+"Auto-deploy GitHub Actions gagal"
+  1. Buka https://github.com/maraazn069/premdev/actions
+     → klik run yang merah → lihat error
+  2. Biasanya: SSH key salah, atau image GHCR private tanpa GHCR_PAT
+
+"Mau rollback ke versi sebelumnya"
+  Di VPS:
+    docker images | grep premdev    # lihat versi yang ada (tag SHA)
+    nano /opt/premdev/.env          # ubah GHCR_IMAGE jadi tag SHA lama
+    docker compose up -d app
+
+
+
+BAGIAN 10: URL PENTING
+--------------------------------------------------------------------------------
+
+  Untuk Apa            | URL
+  ---------------------+--------------------------------------------------
+  Aplikasi utama       | https://app.flixprem.org
+  Admin (alias)        | https://admin.flixprem.org
+  phpMyAdmin           | https://db.flixprem.org
+  Preview workspace    | https://<port>-<workspaceId>.preview.flixprem.org
+  Repo GitHub          | https://github.com/maraazn069/premdev
+  Actions              | https://github.com/maraazn069/premdev/actions
+  GHCR image           | https://github.com/maraazn069/premdev/pkgs/container/premdev
+
+
+
+BAGIAN 11: RINGKASAN 1 HALAMAN
+--------------------------------------------------------------------------------
+
+  NGODING DI REPLIT
+          |
+          |  git push origin main
+          v
+  GITHUB (maraazn069/premdev)
+          |
+          |  GitHub Actions otomatis:
+          |  1. Build Docker image
+          |  2. Push ke GHCR
+          |  3. SSH ke VPS, pull & restart
+          v
+  VPS 20.200.209.228 (/opt/premdev)
+          |
+          |  docker compose:
+          |  - caddy (SSL + proxy)
+          |  - app (PremDev)
+          |  - mysql + phpmyadmin
+          |  - pw_<id> (per-workspace, on-demand)
+          v
+  USER buka https://app.flixprem.org
+
+
+WORKFLOW NORMAL BAPAK SETELAH LIVE:
+  1. Edit kode di Replit
+  2. git add -A && git commit -m "..." && git push
+  3. Tunggu ~5 menit
+  4. Cek https://app.flixprem.org — perubahan sudah live
+
+
+================================================================================
+  Selesai. Kalau pemasangan di VPS error di langkah mana, screenshot
+  pesan error-nya — nanti dibantu debug langkah demi langkah.
+================================================================================

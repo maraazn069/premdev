@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "bm-8zfeQW9sZB2wB05GA4"
+uri = "file://panduan-premdev.txt"
+type = "text"
+title = "Panduan Lengkap PremDev (.txt)"
