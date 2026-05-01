@@ -33,6 +33,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { embed, embedBatch, cosineSim, EMBEDDING_DIM } from "./embeddings.js";
 import { workspacePath } from "./runtime.js";
+import { config } from "./config.js";
 
 // ---------------------------------------------------------------------------
 // Indexable file detection
@@ -101,7 +102,9 @@ function looksBinary(buf: Buffer): boolean {
 const dbCache = new Map<string, Database.Database>();
 
 function dbPath(workspaceId: string): string {
-  return path.join(workspacePath(workspaceId), ".premdev", "embeddings.db");
+  // Simpan di DATA_DIR/embeddings/<workspaceId>/ — BUKAN di dalam workspace root
+  // karena .premdev sudah ada sebagai FILE config JSON, bukan direktori.
+  return path.join(config.DATA_DIR, "embeddings", workspaceId, "embeddings.db");
 }
 
 function openDb(workspaceId: string): Database.Database {
