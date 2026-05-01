@@ -1,0 +1,95 @@
+name: premdev
+
+# Shared logging policy for all services. Caps each container's stdout/stderr
+# at 30 MB total (10 MB × 3 rotated files) to keep /var/lib/docker bounded.
+# Workspace `pw_*` / `pwsh_*` containers get the same caps applied directly
+# in apps/api/src/lib/runtime.ts, since they're created via the Docker API.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+networks:
+  premdev_net:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mysql_data:
+  pma_sessions:
+
+services:
+  caddy:
+    build:
+      context: ./caddy
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    networks: [premdev_net]
+    volumes:
+      - /opt/premdev/data/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Static landing page served at the apex domain. Bind-mounted
+      # read-only so a stray write inside the container can't poison it.
+      - /opt/premdev/data/landing:/srv/landing:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CF_API_TOKEN: ${CF_API_TOKEN}
+      LE_EMAIL: ${LE_EMAIL}
+
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [premdev_net]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    command:
+      - --max_connections=200
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  phpmyadmin:
+    image: phpmyadmin:5-apache
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [premdev_net]
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_ABSOLUTE_URI: https://db.${PRIMARY_DOMAIN}/
+      UPLOAD_LIMIT: 256M
+    volumes:
+      - pma_sessions:/sessions
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  app:
+    image: ${GHCR_IMAGE}
+    restart: unless-stopped
+    logging: *default-logging
+    networks: [premdev_net]
+    env_file: /opt/premdev/.env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /opt/premdev/data:/var/lib/premdev
+    depends_on:
+      mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3001/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5

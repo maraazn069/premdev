@@ -1,0 +1,106 @@
+~/workspace/premdev$ cd premdev
+git add .
+git commit -m "feat: VPS filesystem browser + refactor ai.ts into modules"
+git push origin main
+On branch main
+nothing to commit, working tree clean
+fatal: 'origin' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+bash: cd: premdev: No such file or directory
+[main 3b08bb3] feat: VPS filesystem browser + refactor ai.ts into modules
+ 80 files changed, 27608 deletions(-)
+ delete mode 100644 premdev/Dockerfile
+ delete mode 100644 premdev/README.md
+ delete mode 100644 premdev/alur.md
+ delete mode 100644 premdev/apps/api/package-lock.json
+ delete mode 100644 premdev/apps/api/package.json
+ delete mode 100644 premdev/apps/api/src/index.ts
+ delete mode 100644 premdev/apps/api/src/lib/ai-context.ts
+ delete mode 100644 premdev/apps/api/src/lib/ai-jobs.ts
+ delete mode 100644 premdev/apps/api/src/lib/ai-prompt.ts
+ delete mode 100644 premdev/apps/api/src/lib/ai-providers.ts
+ delete mode 100644 premdev/apps/api/src/lib/ai-settings.ts
+ delete mode 100644 premdev/apps/api/src/lib/auth-helpers.ts
+ delete mode 100644 premdev/apps/api/src/lib/checkpoints.ts
+ delete mode 100644 premdev/apps/api/src/lib/config.ts
+ delete mode 100644 premdev/apps/api/src/lib/db.ts
+ delete mode 100644 premdev/apps/api/src/lib/embeddings.ts
+ delete mode 100644 premdev/apps/api/src/lib/mysql.ts
+ delete mode 100644 premdev/apps/api/src/lib/project-hints.ts
+ delete mode 100644 premdev/apps/api/src/lib/rate-limit.ts
+ delete mode 100644 premdev/apps/api/src/lib/runtime.ts
+ delete mode 100644 premdev/apps/api/src/lib/semantic-search.ts
+ delete mode 100644 premdev/apps/api/src/lib/telegram.ts
+ delete mode 100644 premdev/apps/api/src/lib/templates.ts
+ delete mode 100644 premdev/apps/api/src/lib/workspace-config.ts
+ delete mode 100644 premdev/apps/api/src/routes/admin.ts
+ delete mode 100644 premdev/apps/api/src/routes/ai.ts
+ delete mode 100644 premdev/apps/api/src/routes/attach.ts
+ delete mode 100644 premdev/apps/api/src/routes/auth.ts
+ delete mode 100644 premdev/apps/api/src/routes/db.ts
+ delete mode 100644 premdev/apps/api/src/routes/files.ts
+ delete mode 100644 premdev/apps/api/src/routes/proxy.ts
+ delete mode 100644 premdev/apps/api/src/routes/terminal.ts
+ delete mode 100644 premdev/apps/api/src/routes/vfs.ts
+ delete mode 100644 premdev/apps/api/src/routes/workspaces.ts
+ delete mode 100644 premdev/apps/api/tsconfig.json
+ delete mode 100644 premdev/apps/web/index.html
+ delete mode 100644 premdev/apps/web/package-lock.json
+ delete mode 100644 premdev/apps/web/package.json
+ delete mode 100644 premdev/apps/web/postcss.config.js
+ delete mode 100644 premdev/apps/web/public/favicon.svg
+ delete mode 100644 premdev/apps/web/src/App.tsx
+ delete mode 100644 premdev/apps/web/src/components/AIChat.tsx
+ delete mode 100644 premdev/apps/web/src/components/ConfirmDialog.tsx
+ delete mode 100644 premdev/apps/web/src/components/Layout.tsx
+ delete mode 100644 premdev/apps/web/src/components/SecretsPanel.tsx
+ delete mode 100644 premdev/apps/web/src/components/Terminal.tsx
+ delete mode 100644 premdev/apps/web/src/lib/api.ts
+ delete mode 100644 premdev/apps/web/src/lib/auth.ts
+ delete mode 100644 premdev/apps/web/src/lib/useConfirm.tsx
+ delete mode 100644 premdev/apps/web/src/main.tsx
+ delete mode 100644 premdev/apps/web/src/pages/Admin.tsx
+ delete mode 100644 premdev/apps/web/src/pages/Dashboard.tsx
+ delete mode 100644 premdev/apps/web/src/pages/Editor.tsx
+ delete mode 100644 premdev/apps/web/src/pages/Login.tsx
+ delete mode 100644 premdev/apps/web/src/pages/Settings.tsx
+ delete mode 100644 premdev/apps/web/src/styles/global.css
+ delete mode 100644 premdev/apps/web/tailwind.config.js
+ delete mode 100644 premdev/apps/web/tsconfig.json
+ delete mode 100644 premdev/apps/web/tsconfig.tsbuildinfo
+ delete mode 100644 premdev/apps/web/vite.config.ts
+ delete mode 100644 premdev/infra/Caddyfile.tmpl
+ delete mode 100644 premdev/infra/backup.sh
+ delete mode 100644 premdev/infra/caddy/Dockerfile
+ delete mode 100755 premdev/infra/docker-cleanup.sh
+ delete mode 100644 premdev/infra/docker-compose.prod.yml
+ delete mode 100755 premdev/infra/install.sh
+ delete mode 100644 premdev/infra/landing/index.html
+ delete mode 100644 premdev/infra/monitoring.sh
+ delete mode 100644 premdev/infra/premdev-bot.service
+ delete mode 100755 premdev/infra/redeploy.sh
+ delete mode 100644 premdev/infra/refresh-index.sh
+ delete mode 100644 premdev/infra/restore.sh
+ delete mode 100644 premdev/infra/runtime/Dockerfile
+ delete mode 100644 premdev/infra/telegram-bot.mjs
+ delete mode 100644 premdev/infra/trigger-runner.sh
+ delete mode 100644 premdev/package-lock.json
+ delete mode 100644 premdev/package.json
+ delete mode 100644 premdev/panduan-premdev.txt
+ delete mode 100644 premdev/perintah.md
+ delete mode 100644 premdev/replit.md
+fatal: 'origin' does not appear to be a git repository
+fatal: Could not read from remote repository.
+
+Please make sure you have the correct access rights
+and the repository exists.
+bash: On: command not found
+bash: nothing: command not found
+bash: fatal:: command not found
+bash: fatal:: command not found
+bash: Please: command not found
+bash: and: command not found
+~/workspace/premdev$ 
