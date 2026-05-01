@@ -6,9 +6,9 @@
 
 ---
 
-## 🔴 PENDING TASKS — KERJAKAN DI SESI BERIKUTNYA (BELUM DIIMPLEMENTASI)
+## ✅ COMPLETED TASKS (01 Mei 2026)
 
-### TASK A — VPS Filesystem Browser (prioritas pertama)
+### TASK A — VPS Filesystem Browser ✅ DONE
 
 **Apa:** Fitur di dalam premdev IDE yang memungkinkan user browse dan edit **semua file di VPS**, mulai dari root `/` — bukan hanya file dalam workspace. Termasuk `/etc`, `/opt`, `/home`, `/var`, dll. Ini bukan hanya config editor, tapi full file manager untuk seluruh sistem VPS.
 
@@ -54,7 +54,7 @@
 
 ---
 
-### TASK B — Refactor `apps/api/src/routes/ai.ts` (prioritas kedua, setelah Task A)
+### TASK B — Refactor `apps/api/src/routes/ai.ts` ✅ DONE
 
 **Apa:** File `ai.ts` sekarang 1.677+ baris — semua logic AI campur dalam satu file (context builder, streaming providers, prompt templates, HTTP routes, auto-tier config). User minta dirapikan jadi modul-modul terpisah yang lebih maintainable. Tetap TypeScript/Node.js (bukan Python).
 
@@ -169,6 +169,32 @@ Sebelumnya `POST /api/ai/chat` streaming langsung ke socket reply, jadi kalau us
 **Cara apply ke VPS**: deploy ringan biasa (sama spt 1c). Setelah deploy, user WAJIB hard-refresh browser (Ctrl+Shift+R) supaya bundle JS baru ke-load — kalau gak hard-refresh, dropdown model masih nampilin list lama dari cache.
 
 **Cara test**: buka workspace, kirim chat panjang ke AI, di tengah streaming refresh tab. Reply harusnya muter terus — bukan ke-stop di tengah. Cek juga: stop button di tengah streaming ⇒ AI berhenti BENERAN (cek `ai_tool_calls` di admin: `kind=chat`, durationnya pendek, `ok=0`).
+
+### 1f. Task A + B selesai (01 Mei 2026)
+
+**Task A — VPS Filesystem Browser** (`apps/api/src/routes/vfs.ts`, `apps/api/src/index.ts`, `apps/web/src/pages/Admin.tsx`):
+- Backend: route `/api/vfs/list`, `/api/vfs/read`, `POST /api/vfs/write`, `POST /api/vfs/mkdir`, `DELETE /api/vfs/delete` — admin-only, semua via `requireAdmin`. Path sanitization anti path-traversal (`path.resolve` + prefix check). Base path dari `VFS_ROOT` env (default `/vpsroot`).
+- Frontend: tab baru "VPS Files" di Admin.tsx — file tree, editor textarea, breadcrumb navigasi, tombol Save/New Folder, warning banner merah, shortcut bookmark path VPS penting.
+- Config: `VFS_ROOT=/vpsroot` ditambah ke `config.ts` + `.env.example`.
+- **User masih perlu lakukan sekali via SSH**: tambah volume `- /:/vpsroot:rw` ke docker-compose.yml service `app`, lalu `sudo docker compose up -d app`. Kalau mount belum ada, endpoint kasih error 503 dengan instruksi jelas.
+
+**Task B — Refactor ai.ts** (`apps/api/src/lib/ai-prompt.ts`, `ai-context.ts`, `ai-providers.ts`):
+- `ai.ts` sekarang ~430 baris (dari 1677) — hanya HTTP handlers + route registration.
+- `ai-prompt.ts`: Provider type, ChatMsg type, SYSTEM_PROMPT, AUTO_PILOT_PROMPT, CONT_TRUNC_INSTRUCTION, MAX_HISTORY_*, MAX_TOKENS_*, parseDataUrl, clampMessage, trimHistory.
+- `ai-context.ts`: buildWorkspaceContext, buildWorkspaceDbHint, sniffDatabaseSchema, detectProjectHints, loadProjectMemory, buildRelevantSnippets, SEARCH_TOP_K.
+- `ai-providers.ts`: DEFAULT_MODELS, GEMINI_FREE_TIER, PROVIDER_MODELS, AUTO_TIERS, TEXT_ONLY_MODEL_PATTERNS, isTextOnlyModel, KEY_FAILOVER_STATUSES, fetchGoogleModels, fetchSnifoxModels, streamProvider, streamProviderAuto, streamOpenAICompat, streamAnthropic, streamGoogle, streamGoogleSingle.
+- Tidak ada perubahan fungsional — semua behavior sama persis, hanya dipindah ke modul terpisah.
+
+**Cara apply ke VPS**: deploy ringan biasa:
+```bash
+ssh root@flixprem.org
+cd /opt/premdev
+sudo git pull origin main
+sudo docker compose pull app
+sudo docker compose up -d app
+```
+
+**Cara test VPS Filesystem Browser**: login admin → Admin → tab "VPS Files". Kalau mount belum ada, akan muncul error 503 dengan instruksi. Untuk aktifkan mount, edit `/opt/premdev/docker-compose.yml` → tambah di service `app` → `volumes:` → `- /:/vpsroot:rw` → restart app.
 
 ### 1e. Server-side recovery + mid-run message queue (01 Mei 2026)
 

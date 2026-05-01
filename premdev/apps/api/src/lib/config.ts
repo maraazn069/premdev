@@ -82,6 +82,11 @@ export const config = {
   R2_SECRET_KEY: env("R2_SECRET_KEY", ""),
   R2_BUCKET: env("R2_BUCKET", ""),
   R2_REGION: env("R2_REGION", "auto"),
+
+  // VPS filesystem browser (Task A).
+  // Requires docker-compose.yml volume: - /:/vpsroot:rw on the `app` service.
+  // Admin-only. Leave as default; override only if you mount at a different path.
+  VFS_ROOT: env("VFS_ROOT", "/vpsroot"),
 };
 
 export const IS_DEV = config.NODE_ENV === "development";

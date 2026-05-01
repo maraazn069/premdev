@@ -18,6 +18,7 @@ import { terminalRoutes } from "./routes/terminal.js";
 import { aiRoutes } from "./routes/ai.js";
 import { adminRoutes } from "./routes/admin.js";
 import { dbRoutes } from "./routes/db.js";
+import { vfsRoutes } from "./routes/vfs.js";
 import { setupProxy } from "./routes/proxy.js";
 import { apiLimiter, aiLimiter, clientIp } from "./lib/rate-limit.js";
 
@@ -94,6 +95,7 @@ await app.register(async (api) => {
   await api.register(aiRoutes, { prefix: "/ai" });
   await api.register(adminRoutes, { prefix: "/admin" });
   await api.register(dbRoutes, { prefix: "/db" });
+  await api.register(vfsRoutes, { prefix: "/vfs" });
 }, { prefix: "/api" });
 
 // Health

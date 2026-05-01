@@ -2,10 +2,10 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { API } from "@/lib/api";
 import { Layout } from "@/components/Layout";
-import { Plus, Trash2, Loader2, Activity, Users, HardDrive, Cpu, Key, Eye, EyeOff, Save, Shield, ScrollText, LogIn, Cloud, RefreshCw, Play, Download, AlertTriangle, Sparkles, Search, Database, Zap } from "lucide-react";
+import { Plus, Trash2, Loader2, Activity, Users, HardDrive, Cpu, Key, Eye, EyeOff, Save, Shield, ScrollText, LogIn, Cloud, RefreshCw, Play, Download, AlertTriangle, Sparkles, Search, Database, Zap, Server, Folder, FileText, ChevronRight, Home, FolderPlus, FilePen, X } from "lucide-react";
 import { useConfirm } from "@/lib/useConfirm";
 
-type Tab = "users" | "audit" | "logins" | "backup" | "semantic";
+type Tab = "users" | "audit" | "logins" | "backup" | "semantic" | "vpsfiles";
 
 type AdminUser = {
   id: string;
@@ -118,12 +118,14 @@ export default function AdminPage() {
           <TabButton active={tab === "logins"} onClick={() => setTab("logins")} icon={<LogIn size={14} />}>Login attempts</TabButton>
           <TabButton active={tab === "backup"} onClick={() => setTab("backup")} icon={<Cloud size={14} />}>Backup</TabButton>
           <TabButton active={tab === "semantic"} onClick={() => setTab("semantic")} icon={<Search size={14} />}>AI Search</TabButton>
+          <TabButton active={tab === "vpsfiles"} onClick={() => setTab("vpsfiles")} icon={<Server size={14} />}>VPS Files</TabButton>
         </div>
 
         {tab === "audit" && <AuditLogSection />}
         {tab === "logins" && <LoginAttemptsSection />}
         {tab === "backup" && <BackupSection />}
         {tab === "semantic" && <SemanticSearchSection />}
+        {tab === "vpsfiles" && <VFSSection />}
 
         {tab === "users" && (
         <>
@@ -1267,6 +1269,323 @@ function SemStat({ label, value, sub }: { label: string; value: string; sub?: st
       <div className="text-[10px] uppercase tracking-wide text-text-muted">{label}</div>
       <div className="mt-0.5 truncate font-mono text-sm">{value}</div>
       {sub && <div className="mt-0.5 text-[10px] text-text-muted">{sub}</div>}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// VFS Section — VPS Filesystem Browser
+// ---------------------------------------------------------------------------
+
+type VfsItem = {
+  name: string;
+  path: string;
+  type: "file" | "dir" | "symlink";
+  size: number;
+  mtime: number;
+};
+
+type VfsListResponse = { path: string; items: VfsItem[] };
+type VfsReadResponse = {
+  path: string;
+  size: number;
+  binary: boolean;
+  content: string | null;
+  error?: string;
+};
+
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function VFSSection() {
+  const [currentPath, setCurrentPath] = useState("/");
+  const [breadcrumbs, setBreadcrumbs] = useState<string[]>(["/"]);
+  const [openFile, setOpenFile] = useState<{ path: string; content: string } | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveOk, setSaveOk] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
+  const [showNewFolder, setShowNewFolder] = useState(false);
+  const [creatingFolder, setCreatingFolder] = useState(false);
+
+  const listQ = useQuery<VfsListResponse>({
+    queryKey: ["vfs", "list", currentPath],
+    queryFn: () => API.get(`/vfs/list?path=${encodeURIComponent(currentPath)}`),
+    retry: false,
+  });
+
+  function navigate(path: string) {
+    setCurrentPath(path);
+    // Rebuild breadcrumbs from path
+    const parts = path.split("/").filter(Boolean);
+    setBreadcrumbs(["/" , ...parts.map((_, i) => "/" + parts.slice(0, i + 1).join("/"))]);
+    setOpenFile(null);
+  }
+
+  async function openFileAt(path: string) {
+    setOpenFile(null);
+    setEditContent("");
+    setSaveError(null);
+    setSaveOk(false);
+    try {
+      const res: VfsReadResponse = await API.get(`/vfs/read?path=${encodeURIComponent(path)}`);
+      if (res.binary) {
+        setOpenFile({ path, content: "[Binary file — tidak bisa diedit di browser]" });
+        setEditContent("[Binary file — tidak bisa diedit di browser]");
+      } else if (res.error) {
+        setOpenFile({ path, content: `[Error: ${res.error}]` });
+        setEditContent(`[Error: ${res.error}]`);
+      } else {
+        setOpenFile({ path, content: res.content ?? "" });
+        setEditContent(res.content ?? "");
+      }
+    } catch (e: any) {
+      setOpenFile({ path, content: `[Error membaca file: ${e.message}]` });
+      setEditContent(`[Error membaca file: ${e.message}]`);
+    }
+  }
+
+  async function saveFile() {
+    if (!openFile) return;
+    setSaving(true);
+    setSaveError(null);
+    setSaveOk(false);
+    try {
+      await API.post("/vfs/write", { path: openFile.path, content: editContent });
+      setSaveOk(true);
+      setOpenFile({ ...openFile, content: editContent });
+      setTimeout(() => setSaveOk(false), 3000);
+    } catch (e: any) {
+      setSaveError(e.message ?? "Gagal menyimpan");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createFolder() {
+    const name = newFolderName.trim();
+    if (!name) return;
+    setCreatingFolder(true);
+    try {
+      const newPath = currentPath.replace(/\/$/, "") + "/" + name;
+      await API.post("/vfs/mkdir", { path: newPath });
+      setNewFolderName("");
+      setShowNewFolder(false);
+      listQ.refetch();
+    } catch (e: any) {
+      alert(`Gagal buat folder: ${e.message}`);
+    } finally {
+      setCreatingFolder(false);
+    }
+  }
+
+  const isBinaryOrError =
+    openFile &&
+    (openFile.content?.startsWith("[Binary") || openFile.content?.startsWith("[Error"));
+
+  // Breadcrumb labels: "/" = Home, others = folder name
+  const breadcrumbLabels = breadcrumbs.map((p, i) =>
+    i === 0 ? "/" : p.split("/").filter(Boolean).pop() ?? p,
+  );
+
+  return (
+    <div className="space-y-4">
+      {/* Warning banner */}
+      <div className="flex items-start gap-2 rounded border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">
+        <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+        <span>
+          <strong>⚠ Akses langsung ke filesystem VPS.</strong> Hati-hati saat mengedit file sistem
+          — salah edit <code>/etc</code> bisa bikin VPS tidak bisa boot.
+          <br />
+          <span className="text-rose-400/80 text-xs mt-1 block">
+            Fitur ini butuh volume mount di docker-compose.yml:{" "}
+            <code className="bg-rose-900/30 px-1 rounded">- /:/vpsroot:rw</code> pada service{" "}
+            <code className="bg-rose-900/30 px-1 rounded">app</code>.
+          </span>
+        </span>
+      </div>
+
+      <section className="card p-0 overflow-hidden">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 border-b border-bg-border px-4 py-2">
+          <button
+            className="btn-ghost !p-1"
+            onClick={() => navigate("/")}
+            title="Root"
+          >
+            <Home size={14} />
+          </button>
+          {/* Breadcrumbs */}
+          <div className="flex items-center gap-0.5 text-sm overflow-x-auto flex-1">
+            {breadcrumbs.map((p, i) => (
+              <span key={p} className="flex items-center gap-0.5 shrink-0">
+                {i > 0 && <ChevronRight size={12} className="text-text-muted" />}
+                <button
+                  className={`rounded px-1 py-0.5 hover:bg-bg-hover ${i === breadcrumbs.length - 1 ? "font-medium" : "text-text-muted"}`}
+                  onClick={() => navigate(p)}
+                >
+                  {breadcrumbLabels[i]}
+                </button>
+              </span>
+            ))}
+          </div>
+          <button
+            className="btn-ghost !p-1 shrink-0"
+            onClick={() => listQ.refetch()}
+            title="Refresh"
+          >
+            <RefreshCw size={14} />
+          </button>
+          <button
+            className="btn-ghost !p-1 shrink-0"
+            onClick={() => setShowNewFolder(!showNewFolder)}
+            title="Buat folder baru"
+          >
+            <FolderPlus size={14} />
+          </button>
+        </div>
+
+        {/* New folder input */}
+        {showNewFolder && (
+          <div className="flex items-center gap-2 border-b border-bg-border px-4 py-2 bg-bg-subtle">
+            <FolderPlus size={14} className="text-text-muted shrink-0" />
+            <input
+              className="input flex-1 text-sm !py-1"
+              placeholder="Nama folder baru…"
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") createFolder(); if (e.key === "Escape") setShowNewFolder(false); }}
+              autoFocus
+            />
+            <button className="btn-primary !py-1 !px-3 text-xs" onClick={createFolder} disabled={creatingFolder}>
+              {creatingFolder ? <Loader2 size={12} className="animate-spin" /> : "Buat"}
+            </button>
+            <button className="btn-ghost !p-1" onClick={() => setShowNewFolder(false)}><X size={14} /></button>
+          </div>
+        )}
+
+        <div className="flex divide-x divide-bg-border" style={{ minHeight: "420px" }}>
+          {/* File list panel */}
+          <div className="w-80 shrink-0 overflow-y-auto">
+            {listQ.isLoading && (
+              <div className="flex items-center gap-2 p-4 text-text-muted text-sm">
+                <Loader2 size={14} className="animate-spin" /> Memuat…
+              </div>
+            )}
+            {listQ.isError && (
+              <div className="p-4 text-sm text-rose-300">
+                {(listQ.error as any)?.message ?? "Gagal memuat direktori"}
+              </div>
+            )}
+            {listQ.data?.items.length === 0 && (
+              <div className="p-4 text-sm text-text-muted italic">Directory kosong</div>
+            )}
+            {listQ.data?.items.map((item) => (
+              <button
+                key={item.path}
+                className={`flex w-full items-center gap-2 px-3 py-1.5 text-sm hover:bg-bg-hover text-left ${openFile?.path === item.path ? "bg-bg-hover" : ""}`}
+                onClick={() => {
+                  if (item.type === "dir") {
+                    navigate(item.path);
+                  } else {
+                    openFileAt(item.path);
+                  }
+                }}
+              >
+                {item.type === "dir" ? (
+                  <Folder size={14} className="shrink-0 text-accent" />
+                ) : (
+                  <FileText size={14} className="shrink-0 text-text-muted" />
+                )}
+                <span className="flex-1 truncate">{item.name}</span>
+                {item.type === "file" && (
+                  <span className="text-[10px] text-text-muted shrink-0">{fmtSize(item.size)}</span>
+                )}
+                {item.type === "dir" && (
+                  <ChevronRight size={12} className="shrink-0 text-text-muted" />
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Editor panel */}
+          <div className="flex-1 flex flex-col">
+            {!openFile && (
+              <div className="flex flex-1 items-center justify-center text-text-muted text-sm">
+                <div className="text-center">
+                  <FilePen size={32} className="mx-auto mb-2 opacity-30" />
+                  Pilih file untuk diedit
+                </div>
+              </div>
+            )}
+            {openFile && (
+              <>
+                {/* File header */}
+                <div className="flex items-center gap-2 border-b border-bg-border px-4 py-2 text-sm">
+                  <FileText size={14} className="shrink-0 text-text-muted" />
+                  <span className="flex-1 font-mono text-xs truncate">{openFile.path}</span>
+                  {!isBinaryOrError && (
+                    <button
+                      className="btn-primary !py-1 !px-3 text-xs"
+                      onClick={saveFile}
+                      disabled={saving}
+                    >
+                      {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                      {saving ? "Menyimpan…" : "Simpan"}
+                    </button>
+                  )}
+                </div>
+                {saveError && (
+                  <div className="px-4 py-1.5 text-xs text-rose-300 border-b border-bg-border bg-rose-500/10">
+                    ✖ {saveError}
+                  </div>
+                )}
+                {saveOk && (
+                  <div className="px-4 py-1.5 text-xs text-emerald-400 border-b border-bg-border bg-emerald-500/10">
+                    ✔ File berhasil disimpan
+                  </div>
+                )}
+                <textarea
+                  className="flex-1 resize-none bg-transparent px-4 py-3 font-mono text-xs leading-relaxed outline-none"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  readOnly={!!isBinaryOrError}
+                  spellCheck={false}
+                />
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Bookmarks */}
+      <section className="card p-4">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-muted">
+          Shortcut path yang sering dipakai
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[
+            "/opt/premdev/.env",
+            "/opt/premdev/docker-compose.yml",
+            "/etc/caddy/Caddyfile",
+            "/opt/premdev/infra/Caddyfile.tmpl",
+            "/etc/hostname",
+            "/etc/hosts",
+          ].map((p) => (
+            <button
+              key={p}
+              className="btn-secondary !py-1 !px-2 text-xs font-mono"
+              onClick={() => openFileAt(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
